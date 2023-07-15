@@ -17,6 +17,22 @@ from sklearn.metrics.cluster import normalized_mutual_info_score
 import torch.optim as optim
 
 
+class AverageMeter:
+    def __init__(self):
+        self.reset()
+        
+    def reset(self):
+        self.val = 0
+        self.avg = 0
+        self.sum = 0
+        self.count = 0
+        
+    def update(self, val, n=1):
+        self.val = val
+        self.sum += val * n
+        self.count += n
+        self.avg = self.sum / self.count
+
 class EMADecayOptimizer(optim.Optimizer):
     def __init__(self, optimizer, decay=0.999):
         self.optimizer = optimizer
