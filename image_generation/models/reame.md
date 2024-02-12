@@ -1,0 +1,1 @@
+Access the model pretrained files by downloading them from this location. Refer to the Readme files provided for further instructions.

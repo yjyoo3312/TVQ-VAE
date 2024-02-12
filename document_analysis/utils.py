@@ -16,7 +16,6 @@ import pickle
 from sklearn.metrics.cluster import normalized_mutual_info_score
 import torch.optim as optim
 
-
 class AverageMeter:
     def __init__(self):
         self.reset()
@@ -278,17 +277,26 @@ class TVQVAEClusUtils(object):
             counts.append(max_votes)
         return sum(counts) / labels_true.shape[0]
     
-    def diversity(self, topics, topk=10, per_topic=True):
+    def diversity(self, topics, topk=25, per_topic=True):
         if topics is None:
             return 0
         if topk > len(topics[0]):
             raise Exception('Words in topics are less than ' + str(topk))
-        else:                       
-            unique_words = set()
-            for topic in topics:                
-                unique_words = unique_words.union(set(topic[:topk]))           
+        else:                                   
+            if per_topic == False:
+                unique_words = set()           
+                for topic in topics:
+                    unique_words = unique_words.union(set(topic[:topk]))
+                return len(unique_words) / (topk*len(topics))
+            else:
+                diversities = []
+                for topic in topics: 
+                    unique_words = set()               
+                    unique_words = unique_words.union(set(topic[:topk]))          
+                    diversities.append(len(unique_words) / topk) 
 
-            return len(unique_words) / (topk*len(topics))
+                return diversities
+            
 
 
     def measurement(self, topics_10, topics_25, measure='c_npmi', per_topic=True):          

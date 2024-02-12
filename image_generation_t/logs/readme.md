@@ -1,0 +1,1 @@
+Access the pretrained files for VQGAN and Transformer models by downloading them from the following links: [vqgan](https://drive.google.com/drive/folders/1-YBO-OdFQ1CHvD7s2Kw2jOJzCCIt2u6G?usp=sharing), [transformer](https://drive.google.com/drive/folders/1iYucHlFBnq_kL0vwmpoHi9OPCgB1G-HQ?usp=sharing).

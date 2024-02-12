@@ -1,0 +1,1 @@
+Access the data and pre-trained files by downloading them from this location. Refer to the Readme files provided for further instructions.

@@ -1,0 +1,64 @@
+model:
+  base_learning_rate: 4.5e-06
+  target: taming.models.cond_transformer.Net2NetTransformer_TVQ
+  params:
+    cond_stage_key: coord
+    transformer_config:
+      target: taming.modules.transformer.mingpt.GPT
+      params:
+        vocab_size: 1024
+        block_size: 512
+        n_layer: 24
+        n_head: 16
+        n_embd: 1024
+    first_stage_config:
+      target: taming.models.vqgan.VQModel
+      params:
+        ckpt_path: logs/2020-11-09T13-33-36_faceshq_vqgan/checkpoints/last.ckpt
+        embed_dim: 256
+        n_embed: 1024
+        ddconfig:
+          double_z: false
+          z_channels: 256
+          resolution: 256
+          in_channels: 3
+          out_ch: 3
+          ch: 128
+          ch_mult:
+          - 1
+          - 1
+          - 2
+          - 2
+          - 4
+          num_res_blocks: 2
+          attn_resolutions:
+          - 16
+          dropout: 0.0
+        lossconfig:
+          target: taming.modules.losses.DummyLoss
+    cond_stage_config:
+      target: taming.modules.misc.coord.TopicStage
+      params:
+        topk: 16
+        token: 256
+        embed_dim: 1024
+    n_clusters: 100
+    monitor: v/l
+
+data:
+  target: make_samples_tvq.DataModuleFromConfig
+  params:
+    batch_size: 8
+    num_workers: 8
+    train:
+      target: taming.data.faceshq.FacesHQTrain
+      params:
+        size: 256
+        crop_size: 256
+        coord: True
+    validation:
+      target: taming.data.faceshq.FacesHQValidation
+      params:
+        size: 256
+        crop_size: 256
+        coord: True

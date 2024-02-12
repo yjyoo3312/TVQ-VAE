@@ -43,6 +43,7 @@ def train(data_loader, model, optimizer, scheduler, args, writer, alpha=1.0):
         else:
             loss = loss_prior + alpha*(recon_loss_e + kld_theta)
             
+
         
         loss.backward()
 
@@ -54,13 +55,7 @@ def train(data_loader, model, optimizer, scheduler, args, writer, alpha=1.0):
         mean_loss_kld += kld_theta.item()
 
         if idx % 100 == 0 and idx > 0:
-            print(f"idx {idx} loss_prior {mean_loss_prior / (idx+1):.4f} \
-                  recon_bow {mean_loss_recon_bow / (idx+1):.4f} \
-                  kld {mean_loss_kld / (idx+1):.4f} \
-                  recon {mean_loss_recon / (idx+1):.4f} \
-                  vq {mean_loss_vq / (idx+1):.4f} \
-                  commit {mean_loss_commit / (idx+1):.4f} \
-                  lr = {optimizer.param_groups[0]['lr']:.9f}")
+            print(f"idx {idx} loss_prior {mean_loss_prior / (idx+1):.4f} recon_bow {mean_loss_recon_bow / (idx+1):.4f} kld {mean_loss_kld / (idx+1):.4f} recon {mean_loss_recon / (idx+1):.4f} vq {mean_loss_vq / (idx+1):.4f} commit {mean_loss_commit / (idx+1):.4f} lr = {optimizer.param_groups[0]['lr']:.9f}")
 
 
         # Logs
@@ -112,18 +107,33 @@ def main(args):
     writer = SummaryWriter('./logs/{0}'.format(args.output_folder))
     save_filename = './models/{0}'.format(args.output_folder)
 
-    if args.dataset== 'cifar10':
+    if args.dataset in ['mnist', 'fashion-mnist', 'cifar10']:
         transform = transforms.Compose([
             transforms.ToTensor(),
             transforms.Normalize((0.5, 0.5, 0.5), (0.5, 0.5, 0.5))
         ])
-        # Define the train & test datasets
-        train_dataset = datasets.CIFAR10(args.data_folder,
-            train=True, download=True, transform=transform)
-        test_dataset = datasets.CIFAR10(args.data_folder,
-            train=False, transform=transform)
+        if args.dataset == 'mnist':
+            # Define the train & test datasets
+            train_dataset = datasets.MNIST(args.data_folder, train=True,
+                download=True, transform=transform)
+            test_dataset = datasets.MNIST(args.data_folder, train=False,
+                transform=transform)
+            num_channels = 1
+        elif args.dataset == 'fashion-mnist':
+            # Define the train & test datasets
+            train_dataset = datasets.FashionMNIST(args.data_folder,
+                train=True, download=True, transform=transform)
+            test_dataset = datasets.FashionMNIST(args.data_folder,
+                train=False, transform=transform)
+            num_channels = 1
+        elif args.dataset == 'cifar10':
+            # Define the train & test datasets
+            train_dataset = datasets.CIFAR10(args.data_folder,
+                train=True, download=True, transform=transform)
+            test_dataset = datasets.CIFAR10(args.data_folder,
+                train=False, transform=transform)
+            num_channels = 3
         valid_dataset = test_dataset
-        num_channels = 3        
     elif args.dataset == 'miniimagenet':
         transform = transforms.Compose([
             transforms.RandomResizedCrop(128),

@@ -1,0 +1,2 @@
+python3 generation_pixelcnn_prior_topic_vis.py --dataset 'celeba' --n_clusters 100 --vqvae_model 'models/tvqvae_celeba_e2e_100/best_loss_prior.pt' --samples 'samples/celeba_topic_prior'
+python3 generation_pixelcnn_prior_i2i_e2e.py --dataset 'celeba' --n_clusters 100 --vqvae_model 'models/tvqvae_celeba_e2e_100/best_loss_prior.pt' --samples 'samples/celeba_topic_e2e_i2i_100' 

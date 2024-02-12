@@ -36,7 +36,8 @@ def train(data_loader, model, optimizer, args, writer):
         mean_loss_commit += loss_commit.item()
 
         if idx % 100 == 0:
-            print(f"idx {idx} loss_recon {mean_loss_recon / (idx+1):.4f} loss_vq {mean_loss_vq / (idx+1):.4f} loss_commit {mean_loss_commit / (idx+1):.4f}")
+            print(f"idx {idx} mean_loss_recon {mean_loss_recon / (idx+1):.4f} mean_loss_vq {mean_loss_vq / (idx+1):.4f} mean_loss_commit {mean_loss_commit / (idx+1):.4f}")
+
 
         # Logs
         writer.add_scalar('loss/train/reconstruction', loss_recons.item(), args.steps)
@@ -73,18 +74,33 @@ def main(args):
     writer = SummaryWriter('./logs/{0}'.format(args.output_folder))
     save_filename = './models/{0}'.format(args.output_folder)
 
-    if args.dataset== 'cifar10':
+    if args.dataset in ['mnist', 'fashion-mnist', 'cifar10']:
         transform = transforms.Compose([
             transforms.ToTensor(),
             transforms.Normalize((0.5, 0.5, 0.5), (0.5, 0.5, 0.5))
         ])
-        # Define the train & test datasets
-        train_dataset = datasets.CIFAR10(args.data_folder,
-            train=True, download=True, transform=transform)
-        test_dataset = datasets.CIFAR10(args.data_folder,
-            train=False, transform=transform)
+        if args.dataset == 'mnist':
+            # Define the train & test datasets
+            train_dataset = datasets.MNIST(args.data_folder, train=True,
+                download=True, transform=transform)
+            test_dataset = datasets.MNIST(args.data_folder, train=False,
+                transform=transform)
+            num_channels = 1
+        elif args.dataset == 'fashion-mnist':
+            # Define the train & test datasets
+            train_dataset = datasets.FashionMNIST(args.data_folder,
+                train=True, download=True, transform=transform)
+            test_dataset = datasets.FashionMNIST(args.data_folder,
+                train=False, transform=transform)
+            num_channels = 1
+        elif args.dataset == 'cifar10':
+            # Define the train & test datasets
+            train_dataset = datasets.CIFAR10(args.data_folder,
+                train=True, download=True, transform=transform)
+            test_dataset = datasets.CIFAR10(args.data_folder,
+                train=False, transform=transform)
+            num_channels = 3
         valid_dataset = test_dataset
-        num_channels = 3        
     elif args.dataset == 'miniimagenet':
         transform = transforms.Compose([
             transforms.RandomResizedCrop(128),
@@ -154,7 +170,8 @@ def main(args):
             with open('{0}/best.pt'.format(save_filename), 'wb') as f:
                 torch.save(model.state_dict(), f)
             print(f"best at loss {best_loss:.4f} at Epoch {epoch}")
-
+        #with open('{0}/model_{1}.pt'.format(save_filename, epoch + 1), 'wb') as f:
+        #    torch.save(model.state_dict(), f)
 
 if __name__ == '__main__':
     import argparse

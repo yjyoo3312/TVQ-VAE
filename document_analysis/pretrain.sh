@@ -1,0 +1,1 @@
+python3 trainer.py --do_pretrain --dataset '20ng' --n_embeddings 300 --n 5 --epochs 1000

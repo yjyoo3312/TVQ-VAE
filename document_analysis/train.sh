@@ -1,0 +1,5 @@
+python3 trainer.py --dataset nyt --n_clusters 10 --n_embeddings 300 --epochs 0 --lr 1e-3  --seed 1 --do_cluster --n 5 --alpha_hidden 1 --model_selection tvq_vae
+python3 trainer.py --dataset nyt --n_clusters 20 --n_embeddings 300 --epochs 0 --lr 1e-3  --seed 1 --do_cluster --n 5 --alpha_hidden 1 --model_selection tvq_vae
+python3 trainer.py --dataset nyt --n_clusters 30 --n_embeddings 300 --epochs 0 --lr 1e-3  --seed 1 --do_cluster --n 5 --alpha_hidden 1 --model_selection tvq_vae
+python3 trainer.py --dataset nyt --n_clusters 40 --n_embeddings 300 --epochs 0 --lr 1e-3  --seed 1 --do_cluster --n 5 --alpha_hidden 1 --model_selection tvq_vae
+python3 trainer.py --dataset nyt --n_clusters 50 --n_embeddings 300 --epochs 0 --lr 1e-3  --seed 1 --do_cluster --n 5 --alpha_hidden 1 --model_selection tvq_vae

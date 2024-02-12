@@ -434,14 +434,127 @@ class DecoderNetwork(nn.Module):
 
             return theta       
     
+
+        
+class TopicVectorQuantizedVAE(nn.Module):
+    def __init__(self, input_dim, hidden_dims, n_embeddings, n_clusters=10, n=1, 
+                 t_hidden_size=300, dropout=0.2, model_type='prodLDA'):
+        super().__init__()
+ 
+        self.ae = VectorQuantizedVAE(input_dim, hidden_dims, n_embeddings)
+        self.input_dim = input_dim
+        self.n_clusters = n_clusters
+        self.dropout = dropout      
+        self.t_hidden_size = t_hidden_size
+        self.n_embeddings = n_embeddings
+
+        # get prodLDA
+        self.topic_model_bow = DecoderNetwork(n_embeddings, n_clusters, model_type, dropout=dropout)        
+
+        # link embedding to topic       
+        
+        # topic word, topic dist
+        self.topic_word = None
+        self.topic_document = None
+
+    def disable_ae_grads(self):
+        for param in self.ae.parameters():
+            param.requires_grad = False
+
+    def enable_ae_grads(self):
+        for param in self.ae.parameters():
+            param.requires_grad = True
+
+    def load_ae_params(self, path):
+        with open(path, 'rb') as f:
+            state_dict = torch.load(f)
+            self.ae.load_state_dict(state_dict)
+            print(f"vq vae in {path} loaded")
+
+    def get_topic_embedding(self, x):
+        theta = self.topic_model_bow.get_theta(x)                   
+        return torch.matmul(torch.matmul(theta, self.topic_model_bow.beta), self.ae.codebook.embedding.weight)
+    
+      
+    
+    def get_embedding_per_topic(self, topic_index, batch_size=64):
+        topic_onehot = F.one_hot(topic_index, self.n_clusters).float()
+        theta = topic_onehot.unsqueeze(0).repeat(batch_size, 1)
+        emb = torch.matmul(theta, self.topic_model_bow.beta)
+
+        return torch.matmul(emb, self.ae.codebook.embedding.weight)
+
+
+    def _loss_bow(self, inputs, word_dists, prior_mean, prior_variance,
+              posterior_mean, posterior_variance, posterior_log_variance):
+        # KL term
+        # var division term
+
+        var_division = torch.sum(posterior_variance / (prior_variance), dim=1)
+        
+        # diff means term
+        diff_means = prior_mean - posterior_mean
+        diff_term = torch.sum(
+            (diff_means * diff_means) / prior_variance, dim=1)
+        
+        # logvar det division term
+        logvar_det_division = \
+            prior_variance.log().sum() - posterior_log_variance.sum(dim=1)
+        
+        # combine terms
+        KL = 0.5 * (var_division + diff_term - self.n_clusters + logvar_det_division)
+        KL = KL.sum()
+
+        # Reconstruction term
+        bows = inputs.sum(dim=(2,3))
+        RL = -torch.sum(bows * torch.log(word_dists + 1e-10), dim=1)
+        RL = RL.sum()
        
 
+        return KL, RL
+        
+    def get_info(self, vocab, topk=25):
+        info = {}                   
+
+        info['topic-word-matrix'] = self.topic_word.cpu().detach().numpy()
+        info['topic-document-matrix'] = self.topic_document.cpu().detach().numpy().T
+
+        topic_w = []
+        for k in range(self.n_clusters):
+                if np.isnan(info['topic-word-matrix'][k]).any():
+                    # to deal with nan matrices
+                    topic_w = None
+                    break
+                else:
+                    top_words = list(
+                        info['topic-word-matrix'][k].argsort()[-topk:][::-1])
+                topic_words = [vocab[a] for a in top_words]
+                topic_w.append(topic_words)
+        info['topics'] = topic_w  
+
+        return info                    
+    
+        
+    def forward_topic(self, x):
+
+        bows = F.one_hot(self.ae.encode(x), self.n_embeddings).permute(0,3,1,2).float()
+
+        prior_mean, prior_var, posterior_mean, posterior_var, posterior_log_var, \
+            word_dists, topic_words, topic_document = self.topic_model_bow(bows)
+               
+
+        kld_theta, recon_loss_e = self._loss_bow(bows, word_dists, prior_mean, prior_var, 
+                                                 posterior_mean, posterior_var, posterior_log_var)
+                                                
+                                                                             
+        
+        return kld_theta, recon_loss_e, topic_words, topic_document
     
 
+
 class TopicVectorQuantizedVAE_E2E(nn.Module):
-    def __init__(self, input_dim, hidden_dims, n_embeddings, n_clusters=10, n_hidden_size_prior=64, 
-                 num_prior_layers=15, kernel_size=8,t_hidden_size=300, dropout=0.0, model_type='prodLDA'):
-                 
+    def __init__(self, input_dim, hidden_dims, n_embeddings, n_clusters=10, n_hidden_size_prior=64, num_prior_layers=15, kernel_size=8,
+                 t_hidden_size=300, dropout=0.0, model_type='prodLDA'):
         super().__init__()
  
         self.ae = VectorQuantizedVAE(input_dim, hidden_dims, n_embeddings)
@@ -479,8 +592,16 @@ class TopicVectorQuantizedVAE_E2E(nn.Module):
         theta = self.topic_model_bow.get_theta(x)                   
         return torch.matmul(torch.matmul(theta, self.topic_model_bow.beta), self.ae.codebook.embedding.weight)
     
+    def get_topic_embedding_2(self, x):
+        theta = self.topic_model_bow.get_theta(x)                 
+        return torch.matmul(torch.matmul(theta, self.topic_model_bow.beta), self.ae.codebook.embedding.weight), theta
+    
     def get_topic_embedding_from_image(self, x):
         return self.get_topic_embedding(self.ae.encode(x))
+
+    def get_topic_embedding_from_image_2(self, x):
+        embedding, theta = self.get_topic_embedding_2(self.ae.encode(x))
+        return embedding, theta
     
     
     def get_embedding_per_topic(self, topic_index, batch_size=64):

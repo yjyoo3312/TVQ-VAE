@@ -6,14 +6,11 @@ from torch.distributions.dirichlet import Dirichlet
 import numpy as np
 from collections import OrderedDict
 
-
-class Swish(nn.Module):
-    def __init__(self):
-        super().__init__()
-
-    def forward(self, x):
-        return x * torch.sigmoid(x) 
-   
+def reparameterize(mu, logvar):
+        std = torch.exp(0.5*logvar)
+        eps = torch.randn_like(std)
+        return eps.mul(std).add_(mu)
+ 
 class VectorQuantizer(nn.Module):
     def __init__(self, num_embeddings, embedding_dim, commitment_cost=0.25):
         super(VectorQuantizer, self).__init__()
@@ -47,7 +44,7 @@ class VectorQuantizer(nn.Module):
         distance_indices = F.normalize(1/(-1*distance_indices), dim=-1)
         encodings = torch.zeros(encoding_indices.shape[0], num_embeddings, device=inputs.device)
         encodings.scatter_(1, encoding_indices, distance_indices.detach())
-        #encodings.scatter_(1, encoding_indices, 1)
+        encodings.scatter_(1, encoding_indices, 1)
         
         # Quantize and unflatten
         quantized = torch.matmul(encodings, embedding.weight).view(input_shape)
@@ -63,6 +60,7 @@ class VectorQuantizer(nn.Module):
         
         # convert quantized from BHWC -> BCHW
         return loss, quantized.permute(0, 3, 1, 2).contiguous(), perplexity, encodings
+    
     
 class AutoEncoderVQ(nn.Module):
 
@@ -118,8 +116,7 @@ class InferenceNetwork(nn.Module):
 
     """Inference Network."""
 
-    def __init__(self, input_size, output_size, hidden_sizes,
-                 activation='tanh', dropout=0.2):
+    def __init__(self, input_size, output_size, hidden_sizes=(100, 100), dropout=0.0):
         
         super(InferenceNetwork, self).__init__()        
 
@@ -127,26 +124,9 @@ class InferenceNetwork(nn.Module):
         self.output_size = output_size
         self.hidden_sizes = hidden_sizes
         self.dropout = dropout
-
-        if activation == 'softplus':
-            self.activation = nn.Softplus()
-        elif activation == 'relu':
-            self.activation = nn.ReLU()
-        elif activation == 'sigmoid':
-            self.activation = nn.Sigmoid()
-        elif activation == 'tanh':
-            self.activation = nn.Tanh()
-        elif activation == 'leakyrelu':
-            self.activation = nn.LeakyReLU()
-        elif activation == 'rrelu':
-            self.activation = nn.RReLU()
-        elif activation == 'elu':
-            self.activation = nn.ELU()
-        elif activation == 'selu':
-            self.activation = nn.SELU()
+        self.activation = nn.Tanh()
 
         self.input_layer = nn.Linear(input_size, hidden_sizes[0])
-
 
         self.hiddens = nn.Sequential(OrderedDict([
             ('l_{}'.format(i), nn.Sequential(nn.Linear(h_in, h_out), self.activation))
@@ -158,7 +138,7 @@ class InferenceNetwork(nn.Module):
         self.f_sigma = nn.Linear(hidden_sizes[-1], output_size)
         self.f_sigma_batchnorm = nn.BatchNorm1d(output_size, affine=False)
 
-        self.dropout_enc = nn.Dropout(p=self.dropout)
+        self.dropout_enc = nn.Dropout(p=self.dropout)    
 
     def forward(self, x):
         """Forward pass."""
@@ -176,24 +156,19 @@ class DecoderNetwork(nn.Module):
 
     """AVITM Network."""
 
-    def __init__(self, input_size, word_size, n_components=10, model_type='prodLDA',
-                 hidden_sizes=(100,100), activation='tanh', dropout=0.2,
-                 topic_prior_mean=0.0):
-        
+    def __init__(self, input_size, word_size, n_components=10, hidden_sizes=(100, 100), dropout=0.0):
+
         super(DecoderNetwork, self).__init__()       
 
         self.input_size = input_size
         self.word_size = word_size
         self.n_components = n_components
-        self.model_type = model_type
         self.hidden_sizes = hidden_sizes
-        self.activation = activation
         self.dropout = dropout
+        
+        topic_prior_mean = 1 / n_components
 
-        #self.inf_net = InferenceNetwork(input_size+word_size, n_components, hidden_sizes, activation)
-        self.inf_net = InferenceNetwork(input_size, n_components, hidden_sizes, activation)
-
-        #self.topic_prior_mean = topic_prior_mean
+        self.inf_net = InferenceNetwork(input_size, n_components, hidden_sizes, dropout=dropout)
         self.prior_mean = nn.Parameter(torch.tensor([topic_prior_mean] * n_components))
             
         topic_prior_variance = 1. - (1. / self.n_components)
@@ -204,43 +179,21 @@ class DecoderNetwork(nn.Module):
         nn.init.xavier_uniform_(self.beta)
        
         # dropout on theta
-        self.drop_theta = nn.Dropout(p=self.dropout)
+        self.drop_theta = nn.Dropout(p=self.dropout)    
 
-    @staticmethod
-    def reparameterize(mu, logvar):
-        std = torch.exp(0.5*logvar)
-        eps = torch.randn_like(std)
-        return eps.mul(std).add_(mu)
+    def forward(self, x):        
 
-    def forward(self, x, x_o):
-        #concat
-        #x = torch.cat((x, x_o), dim=1)
-        # batch_size x n_components
         posterior_mu, posterior_log_sigma = self.inf_net(x)
         posterior_sigma = torch.exp(posterior_log_sigma)
 
-        # generate samples from theta
-        theta = F.softmax(
-            self.reparameterize(posterior_mu, posterior_log_sigma), dim=1)
+        theta = F.softmax(reparameterize(posterior_mu, posterior_log_sigma), dim=1)           
         topic_doc = theta
         theta = self.drop_theta(theta)
 
-        # prodLDA vs LDA
-        if self.model_type == 'prodLDA':
-            # in: batch_size x input_size x n_components
-            word_dist = F.softmax(
-                self.beta_batchnorm(torch.matmul(theta, self.beta)), dim=1)
-            topic_word = self.beta
-            # word_dist: batch_size x input_size
-            self.topic_word_matrix = self.beta
-        elif self.model_type == 'LDA':
-            # simplex constrain on Beta
-            beta = F.softmax(self.beta_batchnorm(self.beta), dim=1)
-            topic_word = beta
-            word_dist = torch.matmul(theta, beta)
-            self.topic_word_matrix = self.beta
-            # word_dist: batch_size x input_size
-
+        word_dist = F.softmax(self.beta_batchnorm(torch.matmul(theta, self.beta)), dim=1)          
+        topic_word = self.beta
+        self.topic_word_matrix = self.beta
+        
         return self.prior_mean, self.prior_variance, \
             posterior_mu, posterior_sigma, posterior_log_sigma, word_dist, topic_word,topic_doc
 
@@ -249,35 +202,39 @@ class DecoderNetwork(nn.Module):
             # batch_size x n_components
             posterior_mu, posterior_log_sigma = self.inf_net(x)
 
-            # generate samples from theta
-            theta = F.softmax(
-                self.reparameterize(posterior_mu, posterior_log_sigma), dim=1)
-
-            return theta
+        # generate samples from theta
+        return F.softmax(reparameterize(posterior_mu, posterior_log_sigma), dim=1)
 
     
 class TopicVectorQuantizedVAE(BertPreTrainedModel):
 
-    def __init__(self, config, input_dim, hidden_dims, n_embeddings, n_words, n_clusters, n, loss_type='cosface', 
-                 eps=1e-7, t_hidden_size=300, dropout=0.2, model_type='prodLDA'):
+    def __init__(self, config, input_dim, hidden_dims, n_embeddings, n_words, n_clusters, n, dropout=0.0, alpha_hidden=1): 
+                 
         super().__init__(config)
         self.init_weights()        
         self.bert = BertModel(config, add_pooling_layer=False)
         self.ae = AutoEncoderVQ(input_dim, n_embeddings, hidden_dims, dropout, n)
         self.input_dim = input_dim
         self.n_clusters = n_clusters
-        self.dropout = dropout      
-        self.t_hidden_size = t_hidden_size
+        self.dropout = dropout              
 
-        # get prodLDA
-        self.topic_model_bow = DecoderNetwork(n_embeddings, n_words, n_clusters, model_type, dropout=dropout)        
+        self.topic_model_bow = DecoderNetwork(n_embeddings, n_words, n_clusters, dropout=dropout)     
+
+        if alpha_hidden == 1:
+            hidden = (100,100)
+        elif alpha_hidden == 2:
+            hidden = (100,100,100)
+        elif alpha_hidden == 3:
+            hidden = (100, 100, 100, 100)
+        else:
+            hidden = (100,100)   
 
         # link embedding to topic       
-        self.rho = nn.Parameter(torch.Tensor(hidden_dims[0], n_words))
-        self.rho_batchnorm = nn.BatchNorm1d(n_words, affine=False)
+        self.alpha = InferenceNetwork(input_size=hidden_dims[0], hidden_sizes=hidden, output_size=n_words, dropout=dropout)
+        #self.alpha = nn.Parameter(torch.Tensor(hidden_dims[0], n_words))
+        self.alpha_bn = nn.BatchNorm1d(n_words, affine=False)
         self.emb = self.ae.vq_vae._embedding.weight
-        nn.init.xavier_uniform_(self.rho) 
-
+        
         # topic word, topic dist
         self.topic_word = None
         self.topic_document = None
@@ -288,33 +245,30 @@ class TopicVectorQuantizedVAE(BertPreTrainedModel):
     def _loss_bow(self, inputs, inputs_o, word_dists, word_dists_o, prior_mean, prior_variance,
               posterior_mean, posterior_variance, posterior_log_variance):
         # KL term
-        # var division term
         var_division = torch.sum(posterior_variance / prior_variance, dim=1)
-        
-        # diff means term
+
         diff_means = prior_mean - posterior_mean
         diff_term = torch.sum(
             (diff_means * diff_means) / prior_variance, dim=1)
-        
-        # logvar det division term
+
         logvar_det_division = \
             prior_variance.log().sum() - posterior_log_variance.sum(dim=1)
-        
-        # combine terms
+
         KL = 0.5 * (var_division + diff_term - self.n_clusters + logvar_det_division)
-        KL = KL.sum()
+        KL = KL.mean()
 
         # Reconstruction term
         RL = -torch.sum(inputs * torch.log(word_dists + 1e-10), dim=1)
-        RL = RL.sum()
+        RL = RL.mean()
 
         # Reconstruction term for original word dist
         RL_o = None
         if word_dists_o is not None:
             RL_o = -torch.sum(inputs_o * torch.log(word_dists_o + 1e-10), dim=1)
-            RL_o = RL_o.sum()
+            RL_o = RL_o.mean()
 
         return KL, RL, RL_o
+    
   
     def disable_ae_grads(self):
         for param in self.ae.parameters():
@@ -346,10 +300,10 @@ class TopicVectorQuantizedVAE(BertPreTrainedModel):
         return info                    
     
         
-    def forward_topic(self, bows, bows_o, expansion=True):
+    def forward_topic(self, bows, expansion=True):
 
         prior_mean, prior_var, posterior_mean, posterior_var, posterior_log_var, \
-            word_dists, topic_words, topic_document = self.topic_model_bow(bows, bows_o)
+            word_dists, topic_words, topic_document = self.topic_model_bow(bows)
         
         theta = topic_document
         beta = topic_words
@@ -358,9 +312,9 @@ class TopicVectorQuantizedVAE(BertPreTrainedModel):
         if expansion:
             emb = F.normalize(self.emb, p=2, dim=1)
             beta_n = F.normalize(torch.matmul(beta,emb), p=2, dim=1)
-            #beta_n = torch.matmul(beta,emb)
-            beta_o = torch.matmul(beta_n, self.rho)
-            word_dists_o = F.softmax(self.rho_batchnorm(torch.matmul(theta, beta_o)), dim=1)
+            #beta_o = torch.matmul(beta_n, self.alpha)
+            beta_o, _ = self.alpha(beta_n)           
+            word_dists_o = F.softmax(self.alpha_bn(torch.matmul(theta, beta_o)), dim=1)
 
             self.topic_document = theta
             self.topic_word = beta_o
@@ -368,7 +322,6 @@ class TopicVectorQuantizedVAE(BertPreTrainedModel):
         
         return prior_mean, prior_var, posterior_mean, posterior_var, posterior_log_var, \
             word_dists, word_dists_o, topic_words, topic_document
-
         
    
     def forward(self, input_ids, attention_mask, valid_pos):
