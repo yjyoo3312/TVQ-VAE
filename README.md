@@ -2,7 +2,7 @@
 Topic-VQ-VAE: Leveraging Latent Codebooks for Flexible Topic-Guided Document Generation. AAAI 2024.
 
 # Introduction
-The code provides the implemenetation of the TVQ-VAE in three applications: document analysis, image generation using PixelCNN, and image generation with Transformer. You can check each implementation in the folders below.
+he code includes the implementation of TVQ-VAE across three applications: document analysis, image generation using PixelCNN, and image generation with Transformer. You can explore each implementation in the respective folders provided below.
 
 ```
 -DOCUMENT_ANALYSIS
@@ -11,12 +11,11 @@ The code provides the implemenetation of the TVQ-VAE in three applications: docu
 ```
 
 # Running the Code
-In each folder, you can test the proposed TVQ-VAE. 
+You can test the proposed TVQ-VAE within each respective folder.
 
 ## Document Analsis
 ### Dataset
-The implementation solves BoW style topic extraction from documents. We provide preprocessed data for 20NG and NYT datasets.
-Download the preprocessed.zip file and extract it in each folder.
+The implementation addresses BoW-style topic extraction from documents. We offer preprocessed data for the 20NG and NYT datasets. Please download the `preprocessed.zip` file and extract it into each corresponding folder.
 
 [20ng](https://drive.google.com/file/d/1MtJU_LVB2Sn19G8P3eGYlJltpNwsi4Qb/view?usp=sharing), [NYT](https://drive.google.com/file/d/1uBkiGarwKNmjAX-81ozL3hKeqocmQSCa/view?usp=sharing)
 
@@ -29,16 +28,15 @@ Download the preprocessed.zip file and extract it in each folder.
    -yourown
 ```
 
-You can also test your dataset. If you have the `corpus.txt` file in `yourown` folder, our code will do preprocessing in its first pretrain run.
+If you possess the `corpus.txt` file within the `yourown` folder, our code will conduct preprocessing during its initial pretraining run, allowing you to test your dataset as well.
 
 ### Training
 
-The training code consists of two phases: pretraining of the VQ-VAE, and the training of the TVQ-VAE.
-We provide the pretrained VQ-VAE code for 20NG and NYT datasets in the below link.
+The training code comprises two phases: pretraining the VQ-VAE and training the TVQ-VAE. We offer the pretrained VQ-VAE code for the 20NG and NYT datasets at the link below.
 
 [20ng](https://drive.google.com/drive/folders/1C-1pz5muuvoPoLWvn7poimVXI5Xrg1m2?usp=sharing), [NYT](https://drive.google.com/drive/folders/1fOiLe8wdteDaF0ZB0MuGLqNMnakdU7oB?usp=sharing)
 
-In the link, you can access the folder `tvq_vae`, consisting of 
+Within the provided link, you'll find the folder labeled `tvq_vae`, which contains
 
 ```
 -DOCUMENT_ANALYSIS
@@ -48,7 +46,8 @@ In the link, you can access the folder `tvq_vae`, consisting of
    -pretrained_vq_300_5
 ```
 
-Among the folders, `pretrained_vq_300_5` contains the pretrained vq_vae weights, which having embedding of 300 and n of 5. Place the `tvq_vae` folder under the dataset folder, as
+Among the folders, `pretrained_vq_300_5` contains the pretrained VQ-VAE weights, with embeddings of size 300 and a neighborhood size of 5. Please place the `tvq_vae` folder within the dataset directory, as
+
 ```
 -DOCUMENT_ANALYSIS
  -datasets
@@ -60,23 +59,21 @@ Among the folders, `pretrained_vq_300_5` contains the pretrained vq_vae weights,
    -nyt
    -yourown
 ```
-Then, we can train our TVQ-VAE model, from
+Following that, we can proceed to train our TVQ-VAE model, starting from
 
 ```
 python3 trainer.py --dataset nyt --n_clusters 10 --n_embeddings 300 --epochs 0 --lr 1e-3  --seed 1 --do_cluster --n 5 --alpha_hidden 1 --model_selection tvq_vae
 ```
-Parameter `alpha_hidden` denotes the various settings for topic-word generation module. `alpha_hidden=1` provides the equivalent setting to the paper.
-You can use `train.sh` file, as well. We note that `epochs` is set to zero by default, because the epoch denotes the training iteration to modify the VQ-VAE part, which is basically not an option in our method.
+The parameter `alpha_hidden` represents different configurations for the topic-word generation module. Setting `alpha_hidden=1` corresponds to the configuration described in the paper. You can also utilize the `train.sh` file. It's worth mentioning that `epochs` is typically set to zero by default, as epochs denote training iterations for adjusting the VQ-VAE component, which isn't applicable in our approach.
 
-For pretraining, you can use
+For the pretraining phase, you have the option to utilize
 ```
 python3 trainer.py --do_pretrain --dataset '20ng' --n_embeddings 300 --n 5 --epochs 1000
 ```
-We note that we set all the example setting to embeeding of 300 and n of 5. You can use `prtrain.sh` file for running it.
+We note that we've configured all examples to use embeddings of size 300 and a neighborhood size of 5. To execute the pretraining, you can utilize the `prtrain.sh` file.
 
 ### Evaluation
-This implementation includes improved topic extractions, even compared to the initial version of the paper. The modifications on optimizer, epochs, and learning rates significantly improved the topic quality. Check our impolementation for more detail.
-You can get the quantitative results as:
+This implementation features enhanced topic extraction capabilities, surpassing even the initial version described in the paper. The adjustments made to the optimizer, epochs, and learning rates have notably enhanced the quality of topics generated. For further details, please refer to our implementation. Additionally, you can obtain quantitative results such as:
 
 #### 20NG
 Initial version.
@@ -147,16 +144,17 @@ alpha_hidden=2
 | Avg   | 0.1880            | 0.9840             | 0.1849       |
 
 ### References
-
-We start implementing our code based on [Topclus](https://github.com/yumeng5/TopClus). We appreciate the sharing.
+We have initiated the implementation of our code inspired by [Topclus](https://github.com/yumeng5/TopClus). We are grateful for the shared resources.
 
 ## Image Generation - PixelCNN
 
-This example tests the proposed TVQ-VAE for image generation using CIFAR10 and CelebA dataset.
+This example evaluates the proposed TVQ-VAE for image generation, utilizing the CIFAR10 and CelebA datasets.
 
 ### Dataset
 
-We provide two datasets: CIFAR10 and CelebA datasets. Please refer the link [1](https://www.cs.toronto.edu/~kriz/cifar.html), [2](https://mmlab.ie.cuhk.edu.hk/projects/CelebA.html) to get each ciations.
+
+We offer two datasets: CIFAR10 and CelebA datasets. You can refer to the following links to access each dataset: [1](https://www.cs.toronto.edu/~kriz/cifar.html), [2](https://mmlab.ie.cuhk.edu.hk/projects/CelebA.html)
+
 
 ```
 -IMAGE_GENERATION
@@ -169,7 +167,7 @@ Then, unzip each dataset into the `data` folder.
 
 ### Training
 
-To train the model, we provide VQ-VAE pretrained models for CIAR10 and CelebA datasets.
+For training the model, we offer pretrained VQ-VAE models tailored for both the CIFAR10 and CelebA datasets.
 
 [CIFAR10](https://drive.google.com/drive/folders/199GtQuacvA1JBRUTKrEHZ1KMu5gCuRGq?usp=sharing), [CelebA](https://drive.google.com/drive/folders/1_k9yuio3wFbHAvRPlYoAAaw_EuLPmHPx?usp=sharing)
 
@@ -194,16 +192,19 @@ python3 train_tvqvae_e2e.py --dataset 'cifar10' --n_clusters 100 --output-folder
 
 ### Generation
 
-We provide two generation script: one for visualizing the topics and the others for generating images based on the refernece image.
-The former one can be done by `generatioin_pixelcnn_prior_topic_vis.py`, and the latters by `generation_pixelcnn_prior_i2i_e2e.py`.
-See arguments for more detailed information. 
 
-For i2i image generation, use the following command
+We offer two generation scripts: one for visualizing topics and the other for generating images based on reference images.
+
+To visualize topics, use `generation_pixelcnn_prior_topic_vis.py`. For image-to-image (i2i) generation, use `generation_pixelcnn_prior_i2i_e2e.py`. Please refer to the arguments for more detailed information.
+
+For i2i image generation, execute the following command:
+
 ```
 python3 generation_pixelcnn_prior_i2i_e2e.py --dataset 'cifar10' --n_clusters 100 --vqvae_model 'models/tvqvae_cifar10_e2e_100/best_loss_prior.pt' --samples 'samples/cifar10_topic_e2e_i2i_100' 
 ```
 
 For topic visualization, use the following command
+
 ```
 python3 generation_pixelcnn_prior_topic_vis.py --dataset 'cifar10' --n_clusters 100 --vqvae_model 'models/tvqvae_cifar10_e2e_100/best_loss_prior.pt' --samples 'samples/cifar10_topic_prior'
 ```
@@ -212,20 +213,18 @@ You can use the pretrained TVQ-VAE weights in the links below:
 [CelebA](https://drive.google.com/drive/folders/1ZOgq3ubIAvYcAwEfACjJpA4S4P7M74mg?usp=sharing), [CIFAR10](https://drive.google.com/drive/folders/1XtTRgVhjZsx3FPTUxnuK2vLimHOIHq2o?usp=sharing)
 
 ### Reference
-We refer the pytorch implementation of [VQ-VAE](https://github.com/ritheshkumar95/pytorch-vqvae) as our baseline code. We appreciate the sharing.
+We acknowledge and appreciate the sharing of the PyTorch implementation of VQ-VAE available at this [link](https://github.com/ritheshkumar95/pytorch-vqvae), which serves as the baseline code for our work.
 
 ## Image Generation - Transformer
 
-This example tests the proposed TVQ-VAE for image generation combined with [taming-transformer](https://github.com/CompVis/taming-transformers).
+This example evaluates the proposed TVQ-VAE for image generation in conjunction with the [taming-transformer](https://github.com/CompVis/taming-transformers).
 
 ### Dataset
-
-We follow the equivalent dataset settings to those in taming transformer repo. Our code tests facesHQ. 
-Hence, following the [repository](https://github.com/CompVis/taming-transformers), download CelebHQ and FFHQ datasets and configure the datasets as instructed.
+We adhere to the dataset configurations equivalent to those specified in the taming transformer repository. Our code focuses on testing facesHQ. Therefore, following the instructions provided in the [repository](https://github.com/CompVis/taming-transformers), please download the CelebHQ and FFHQ datasets and configure the datasets accordingly.
 
 ### Training
 
-You can test our code with 
+You can test our code from 
 
 ```
 python3 main.py --base configs/faceshq_transformer_tvq.yaml -t True --gpus 1 --max_epochs 12
@@ -245,8 +244,7 @@ We provide the pretrained tvq-vae files and example samples in [pretrained](http
 
 ### References
 
-We implemented our TVQ-VAE code integrated with Transformer from [taming-transformer](https://github.com/CompVis/taming-transformers). 
-
+We have integrated our TVQ-VAE code with the Transformer model from the [taming-transformer](https://github.com/CompVis/taming-transformers). We appreciate the resources shared.
 
 # Citation
 
