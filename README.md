@@ -2,7 +2,7 @@
 Topic-VQ-VAE: Leveraging Latent Codebooks for Flexible Topic-Guided Document Generation. AAAI 2024.
 
 # Introduction
-he code includes the implementation of TVQ-VAE across three applications: document analysis, image generation using PixelCNN, and image generation with Transformer. You can explore each implementation in the respective folders provided below.
+The code includes the implementation of TVQ-VAE across three applications: document analysis, image generation using PixelCNN, and image generation with Transformer. You can explore each implementation in the respective folders provided below.
 
 ```
 -DOCUMENT_ANALYSIS
